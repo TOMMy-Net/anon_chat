@@ -33,12 +33,12 @@ func (db *DB)Close(){
 	db.sql.Close()
 }
 
-func (db *DB)Create_person(username string){
-	data, err := db.sql.Prepare("INSERT INTO person (username) VALUES (?)")
+func (db *DB)Create_person(username string, name string){
+	data, err := db.sql.Prepare("INSERT INTO person (username, name) VALUES (?, ?)")
 	if err != nil{
 		panic(err)
 	}
-	data.Exec(username)
+	data.Exec(username, name)
 }
 func (db *DB)Check_person(username string) bool{
 	rows, err := db.sql.Query("SELECT id, username FROM person WHERE username = ?", username)
