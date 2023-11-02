@@ -3,7 +3,7 @@ package database_settings
 import (
 	"database/sql"
 	"log"
-
+	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -26,6 +26,7 @@ func Open_db() *DB{
 	data_b := DB{
 		sql: db,
 	}
+	fmt.Println("Соединение с SQLite установлено")
     return &data_b
 }
 
@@ -50,4 +51,12 @@ func (db *DB)Check_person(username string) bool{
 	} else {
 		return false
 	}
+}
+
+func (db *DB)Create_chat(chat_one, chat_two int64) {
+	data, err := db.sql.Prepare("INSERT INTO chats (chat_one, chat_two) VALUES (?, ?)")
+	if err != nil{
+		panic(err)
+	}
+	data.Exec(chat_one, chat_two)
 }

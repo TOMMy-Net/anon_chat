@@ -1,8 +1,8 @@
 package redis_client
 
-import(
-	"log"
+import (
 	"fmt"
+	"log"
 	redis "github.com/go-redis/redis"
 )
 type Redis struct{
@@ -23,4 +23,25 @@ func Create_client() Redis{
 	}
 	fmt.Println("Соединение с Redis установлено")
 	return client
+}
+
+func (r Redis)Queue_add(data int64){
+	err := r.Client.RPush("search", data).Err()
+	if err != nil {
+	 log.Fatal(err)
+	}
+}
+
+func (r Redis)Queue_pop() string {
+	element, err := r.Client.LPop("search").Result()
+	if err == redis.Nil{
+		return ""
+	}else if err != nil {
+		panic(err)
+	}
+	return element
+}
+
+func (r Redis)Queue_rem(data int64)  {
+	r.Client.LRem("search", 0, data)
 }
