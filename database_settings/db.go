@@ -16,8 +16,8 @@ type DB struct {
 
 type Chat struct {
 	Id       int
-	Chat_one int
-	Chat_two int
+	Chat_one int64
+	Chat_two int64
 }
 
 func (db *DB) Create_table() {
