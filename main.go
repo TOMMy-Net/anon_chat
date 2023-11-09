@@ -26,12 +26,13 @@ const (
 	stop_search_perosn = "🔍 Поиск остановлен"
 	Registration_fine  = "✅ Регистрация успешно пройдена\nНажми на /start"
 	time_to_find       = "👽 Пора искать тебе собеседника"
-	person_find        = "Собеседник найден\nВся переписка защищена 🔒"
+	person_find        = "Собеседник найден\nВся переписка защищена 🔒\n\nОставноить чат - /stop\nСледующий собеседник - /next"
 	queue              = "❗ Вы уже находитесь в поиске!"
 	stop_chat          = "🚶 Вы покинули чат"
 	leave_chat         = "😓 Собеседник покинул чат"
 	no_available_chat  = "🚫 У вас не было активного чата"
-	no_access 	       = "⚠ Пройдите регистрацию"
+	no_access          = "⚠ Пройдите регистрацию"
+	next_person        = "🔍 Поиск следующего собеседника"
 )
 
 var sex_menu = tgbotapi.NewInlineKeyboardMarkup(
@@ -69,9 +70,7 @@ func (h Handler) Commands() {
 			h.db.Delete_chat(h.updater.Message.Chat.ID)
 			msg.Text = stop_chat
 			msg.ReplyMarkup = Start_menu
-			if _, err := h.bot.Send(msg); err != nil {
-				log.Panic(err)
-			}
+			h.Send(msg)
 			msg.Text = leave_chat
 			if chat_one := int64(chat.Chat_one); chat_one != h.updater.Message.Chat.ID {
 				msg.ChatID = chat_one
@@ -109,9 +108,36 @@ func (h Handler) Commands() {
 			} else {
 				msg.Text = no_available_chat
 			}
-		}else{
+		} else {
 			msg.Text = no_access
 		}
+	case "next":
+		if h.db.Check_person(h.updater.Message.From.UserName) == true {
+
+			if chat := h.db.Get_active_chat(h.updater.Message.Chat.ID); chat != (sql.Chat{}) {
+				h.db.Delete_chat(h.updater.Message.Chat.ID)
+				h.Start_find()
+	
+
+				msg.ReplyMarkup = Start_menu
+				msg.Text = leave_chat
+				if chat_one := int64(chat.Chat_one); chat_one != h.updater.Message.Chat.ID {
+					msg.ChatID = chat_one
+				} else if chat_two := int64(chat.Chat_two); chat_two != h.updater.Message.Chat.ID {
+					msg.ChatID = chat_two
+				}
+
+			} else if h.r.Queue_exist(h.updater.Message.Chat.ID) == true {
+				h.r.Queue_rem(h.updater.Message.Chat.ID)
+				msg.Text = stop_search_perosn
+				msg.ReplyMarkup = Start_menu
+			} else {
+				msg.Text = no_available_chat
+			}
+		} else {
+			msg.Text = no_access
+		}
+
 	default:
 		msg.Text = "Неизвестная команда"
 	}
@@ -123,33 +149,7 @@ func (h Handler) Messages() {
 	msg := tgbotapi.NewMessage(h.updater.Message.Chat.ID, "")
 	switch h.updater.Message.Text {
 	case start_find_button:
-		if h.r.Queue_exist(h.updater.Message.Chat.ID) == false {
-			if chat, err := strconv.Atoi(h.r.Queue_pop()); chat != 0 && chat != int(h.updater.Message.Chat.ID) {
-
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				h.db.Create_chat(h.updater.Message.Chat.ID, int64(chat))
-
-				msg.Text = person_find
-				msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
-				fmt.Println(chat)
-				h.Send(msg)
-				msg.ChatID = int64(chat)
-				h.Send(msg)
-
-			} else {
-				h.r.Queue_add(h.updater.Message.Chat.ID)
-				msg.ReplyMarkup = stop_menu
-				msg.Text = search_person
-				h.Send(msg)
-			}
-
-		} else {
-			msg.Text = queue
-		}
-
+		h.Start_find()
 	case stop_find_button:
 		h.r.Queue_rem(h.updater.Message.Chat.ID)
 		msg.ReplyMarkup = Start_menu
@@ -162,38 +162,23 @@ func (h Handler) Messages() {
 
 	default:
 		if chat := h.db.Get_active_chat(h.updater.Message.Chat.ID); chat != (sql.Chat{}) {
-			if h.updater.Message.Voice != nil {
-				voice := tgbotapi.NewVoice(h.updater.Message.Chat.ID, nil)
-				voice.File = tgbotapi.FileID(h.updater.Message.Voice.FileID)
-
-				if chat_one := int64(chat.Chat_one); chat_one != h.updater.Message.Chat.ID {
-					voice.ChatID = chat_one
-				} else if chat_two := int64(chat.Chat_two); chat_two != h.updater.Message.Chat.ID {
-					voice.ChatID = chat_two
-				}
-				h.Send(voice)
-
-			} else if h.updater.Message.Text != "" {
-				msg.Text = h.updater.Message.Text
-				if chat_one := int64(chat.Chat_one); chat_one != h.updater.Message.Chat.ID {
-					msg.ChatID = chat_one
-				} else if chat_two := int64(chat.Chat_two); chat_two != h.updater.Message.Chat.ID {
-					msg.ChatID = chat_two
-				}
-				h.Send(msg)
-			} else if h.updater.Message.Sticker != nil{
-				sticker := tgbotapi.NewSticker(h.updater.Message.Chat.ID, tgbotapi.FileID(h.updater.Message.Sticker.FileID))
-				if chat_one := int64(chat.Chat_one); chat_one != h.updater.Message.Chat.ID {
-					sticker.ChatID = chat_one
-				} else if chat_two := int64(chat.Chat_two); chat_two != h.updater.Message.Chat.ID {
-					sticker.ChatID = chat_two
-				}
-				h.Send(sticker)
+			var (
+				chat_id int64
+			)
+			if chat_one := int64(chat.Chat_one); chat_one != h.updater.Message.Chat.ID {
+				chat_id = chat_one
+			} else if chat_two := int64(chat.Chat_two); chat_two != h.updater.Message.Chat.ID {
+				chat_id = chat_two
 			}
+			copy := tgbotapi.NewCopyMessage(chat_id, h.updater.Message.Chat.ID, h.updater.Message.MessageID)
+			h.Send(copy)
 
 		} else {
-			msg.Text = "Неизвестная команда"
-			h.Send(msg)
+			delete := tgbotapi.NewDeleteMessage(h.updater.Message.Chat.ID, h.updater.Message.MessageID)
+			if _, err := h.bot.Request(delete); err != nil {
+				log.Panic(err)
+			}
+
 		}
 
 	}
@@ -206,11 +191,41 @@ func (h Handler) Send(msg tgbotapi.Chattable) {
 	}
 }
 
-func (h Handler) Edit_message(chat_id int64, lastMessageID int) {
-	edit_message := tgbotapi.NewEditMessageText(chat_id, lastMessageID, Registration_fine)
+func (h Handler) Edit_message(chat_id int64, lastMessageID int, temp string) {
+	edit_message := tgbotapi.NewEditMessageText(chat_id, lastMessageID, temp)
 	h.Send(edit_message)
 }
 
+func (h Handler) Start_find() {
+	msg := tgbotapi.NewMessage(h.updater.Message.Chat.ID, "")
+	if h.r.Queue_exist(h.updater.Message.Chat.ID) == false {
+		if chat, err := strconv.Atoi(h.r.Queue_pop()); chat != 0 && chat != int(h.updater.Message.Chat.ID) {
+
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			h.db.Create_chat(h.updater.Message.Chat.ID, int64(chat))
+
+			msg.Text = person_find
+			msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+			fmt.Println(chat)
+			h.Send(msg)
+			msg.ChatID = int64(chat)
+			h.Send(msg)
+
+		} else {
+			h.r.Queue_add(h.updater.Message.Chat.ID)
+			msg.ReplyMarkup = stop_menu
+			msg.Text = search_person
+			h.Send(msg)
+		}
+
+	} else {
+		msg.Text = queue
+		h.Send(msg)
+	}
+}
 func main() {
 	db := sql.Open_db() //db connection
 	defer func() { db.Close() }()
@@ -258,12 +273,12 @@ func main() {
 			case "man":
 				if db.Check_person(update.CallbackQuery.From.UserName) == false {
 					db.Create_person(update.CallbackQuery.From.UserName, update.CallbackQuery.From.FirstName, "m")
-					up.Edit_message(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID)
+					up.Edit_message(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, Registration_fine)
 				}
 			case "girl":
 				if db.Check_person(update.CallbackQuery.From.UserName) == false {
 					db.Create_person(update.CallbackQuery.From.UserName, update.CallbackQuery.From.FirstName, "w")
-					up.Edit_message(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID)
+					up.Edit_message(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, Registration_fine)
 				}
 			}
 
