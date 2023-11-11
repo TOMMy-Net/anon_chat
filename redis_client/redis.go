@@ -60,12 +60,12 @@ func (r Redis) Queue_exist(data int64) bool {
 
 	// Вывод значений очереди
 	for _, value := range queueValues {
-		if value == conv{
+		if value == conv {
 			return true
-		}else{
-			continue;
+		} else {
+			continue
 		}
-		
+
 	}
 	return false
 }

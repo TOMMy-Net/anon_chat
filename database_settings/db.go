@@ -44,17 +44,17 @@ func (db *DB) Close() {
 	db.sql.Close()
 }
 
-func (db *DB) Create_person(username string, name string, sex string) {
+func (db *DB) Create_person(id int64, username string, name string, sex string) {
 	db.Begin()
-	data, err := db.sql.Prepare("INSERT INTO person (username, name, sex) VALUES (?, ?, ?)")
+	data, err := db.sql.Prepare("INSERT INTO person (id_tg, username, name, sex) VALUES (?, ?, ?, ?)")
 	if err != nil {
 		panic(err)
 	}
-	data.Exec(username, name, sex)
+	data.Exec(id, username, name, sex)
 	db.Commit()
 }
-func (db *DB) Check_person(username string) bool {
-	rows, err := db.sql.Query("SELECT id, username FROM person WHERE username = ?", username)
+func (db *DB) Check_person(id int64) bool {
+	rows, err := db.sql.Query("SELECT id, username FROM person WHERE id_tg = ?", id)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -113,6 +113,15 @@ func (db *DB) Delete_chat(chat int64) {
 		panic(err)
 	}
 	data.Exec(chat, chat)
+	db.Commit()
+}
+func (db *DB) Report_person(id int64) {
+	db.Begin()
+	data, err := db.sql.Prepare("UPDATE person SET reports = reports + 1 WHERE id_tg = ?")
+	if err != nil {
+		panic(err)
+	}
+	data.Exec(id)
 	db.Commit()
 }
 func (db *DB) Begin() error {
