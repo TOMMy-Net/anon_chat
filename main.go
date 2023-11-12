@@ -5,9 +5,11 @@ import (
 	redis "anon_chat/redis_client"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"gopkg.in/yaml.v3"
 )
 
 type Handler struct {
@@ -15,6 +17,9 @@ type Handler struct {
 	bot     *tgbotapi.BotAPI
 	r       redis.Redis
 	db      *sql.DB
+}
+type Token struct {
+	Token string `yaml:"token"`
 }
 
 // предустановки
@@ -257,13 +262,22 @@ func (h Handler) Start_find() {
 	}
 }
 func main() {
+	//read config
+	yamlFile, err := os.ReadFile("config.yaml")
+	if err != nil {
+		panic(err)
+	}
+	var token Token
+	err = yaml.Unmarshal(yamlFile, &token)
+	if err != nil {
+		panic(err)
+	}
 	db := sql.Open_db() //db connection
-	defer func() { db.Close() }()
-	defer func() { fmt.Println("CONNECTION CLOSE") }()
+	defer func() { db.Close(); fmt.Println("CONNECTION CLOSE") }()
 	r := redis.Create_client() //redis connection
 	defer func() { r.Client.Close() }()
 
-	bot, err := tgbotapi.NewBotAPI("5837523403:AAExgbJOdXRFCJRow0Mw6j0Tqx_oR3J1F0Q")
+	bot, err := tgbotapi.NewBotAPI(token.Token)
 	if err != nil {
 		log.Panic(err)
 	}
